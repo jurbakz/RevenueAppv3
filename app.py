@@ -86,5 +86,21 @@ def available_clients():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route("/deploy-pull", methods=["POST"])
+def deploy_pull():
+    import subprocess
+    token = request.headers.get("X-Deploy-Token")
+    expected_token = os.environ.get("DEPLOY_TOKEN", "revenue-v3-secret-sync")
+    if not token or token != expected_token:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    try:
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        cmd = ["git", "pull", "origin", "main"]
+        result = subprocess.run(cmd, cwd=app_dir, capture_output=True, text=True, check=True)
+        return jsonify({"status": "success", "output": result.stdout}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

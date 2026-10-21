@@ -15,6 +15,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Trigger Git Pull on PythonAnywhere
+        run: |
+          echo "Triggering automated git pull on PythonAnywhere..."
+          curl -s -X POST \
+            -H "X-Deploy-Token: revenue-v3-secret-sync" \
+            "https://${{ secrets.PA_DOMAIN }}/deploy-pull" || true
+
       - name: Reload PythonAnywhere Web App
         run: |
           echo "Triggering PythonAnywhere web app reload..."
