@@ -1,0 +1,17 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data staging & temporary export files
+import_data/*
+!import_data/.gitkeep
+export_data/*
+!export_data/.gitkeep
+
+# Environment & local secrets
+.env
+.venv/
+env/
+venv/
+*.log

@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revenue Calculator V3</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f4f4f4;
+            margin: 0;
+            padding: 0;
+            background: url("{{ url_for('static', filename='xde.jpg') }}") no-repeat center center fixed;
+            background-size: cover;
+        }
+        header {
+            background: #004080;
+            color: white;
+            padding: 5px;
+        }
+        .container {
+            margin: 5px auto;
+            width: 80%;
+            max-width: 500px;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0px 4px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #004080;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            margin: 2px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #0066cc;
+        }
+        /* 🔵 Loading overlay */
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            font-size: 38px;
+            font-weight: bold;
+        }
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid #004080;
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: spin 1s linear infinite;
+        }
+        #loadingOverlay p {
+            margin-top: 30px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* 🔵 Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 8px;
+            width: 400px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        footer {
+            margin-top: 10px;
+            padding: 5px;
+            background: #222;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h2>Revenue Calculator Tool V3</h2>
+    </header>
+
+    <div class="container">
+        <h2>Choose an Option</h2>
+
+        <!-- Upload & Calculate Form -->
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" name="file" required>
+            <p>Select a file exported from Rubix</p>
+            <button type="submit">Generate Revenue</button>
+        </form>
+
+        <!-- Clients button -->
+        <button onclick="showClients()">Lists of Automated Clients</button>
+
+        <!-- Footer -->
+        <footer style="text-align:center; padding:5px; font-size:0.8em; color:#888; border-top:1px solid #ddd; height: 30px;">
+            <p><b>Crafted with 💩 by Teroy &#9417;</b></p>
+        </footer>
+    </div>
+
+    <!-- Client Modal -->
+    <div id="clientModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Automated Clients</h3>
+            <ul id="clients"></ul>
+        </div>
+    </div>
+
+    <!-- 🔵 Loading Overlay -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <p id="loadingMessage">Processing file… wait ngani....</p>
+    </div>
+
+    <!-- JS -->
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        const form = document.getElementById("uploadForm");
+        const overlay = document.getElementById("loadingOverlay");
+        const loadingMessage = document.getElementById("loadingMessage");
+
+        // ✅ Upload handler
+        form.addEventListener("submit", async function(e) {
+            e.preventDefault();
+            overlay.style.display = "flex"; // show spinner
+            loadingMessage.textContent = "Processing file… wait ngani....";
+
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("Download failed");
+
+                const procTime = response.headers.get("X-Processing-Time-Ms");
+                if (procTime) {
+                    loadingMessage.textContent = `Completed in ${procTime}ms! Downloading...`;
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+
+                const cd = response.headers.get("Content-Disposition");
+                let filename = "output.xlsx";
+                if (cd && cd.includes("filename=")) {
+                    filename = cd.split("filename=")[1].replace(/['"]/g, "");
+                }
+                a.download = filename;
+
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+
+                // update message before hiding
+                loadingMessage.textContent = "Done! Download should start automatically...";
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                setTimeout(() => {
+                    overlay.style.display = "none";
+                }, 1200); // hide overlay after a short delay
+            }
+        });
+
+        // ✅ Show Clients handler
+        window.showClients = function() {
+            fetch("/available_clients")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert("Error loading clients: " + data.error);
+                        return;
+                    }
+                    const clientUl = document.getElementById("clients");
+                    clientUl.innerHTML = "";
+                    data.clients.forEach(c => {
+                        const li = document.createElement("li");
+                        li.textContent = c;
+                        clientUl.appendChild(li);
+                    });
+                    document.getElementById("clientModal").style.display = "block";
+                })
+                .catch(err => alert("Error loading clients: " + err));
+        };
+
+        // ✅ Close modal
+        document.querySelector(".close").onclick = function() {
+            document.getElementById("clientModal").style.display = "none";
+        };
+        window.onclick = function(event) {
+            const modal = document.getElementById("clientModal");
+            if (event.target === modal) {
+                modal.style.display = "none";
+            }
+        };
+    });
+    </script>
+</body>
+</html>
