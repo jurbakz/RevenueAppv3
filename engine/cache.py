@@ -1,4 +1,5 @@
 import os
+import pickle
 import pandas as pd
 import numpy as np
 
@@ -16,10 +17,34 @@ class RateCache:
         self.ecom_rate_df = None
         self._load()
 
+    def _cache_path(self):
+        base, _ = os.path.splitext(self.data_file)
+        return f"{base}_cache.pkl"
+
     def _load(self):
         if not os.path.exists(self.data_file):
             raise FileNotFoundError(f"Rate file not found: {self.data_file}")
 
+        cache_file = self._cache_path()
+        if os.path.exists(cache_file):
+            try:
+                if os.path.getmtime(cache_file) >= os.path.getmtime(self.data_file):
+                    with open(cache_file, "rb") as f:
+                        cached_dict = pickle.load(f)
+                    self.__dict__.update(cached_dict)
+                    return
+            except Exception as e:
+                print(f"[RateCache] Cache load failed, regenerating: {e}")
+
+        self._load_from_excel()
+
+        try:
+            with open(cache_file, "wb") as f:
+                pickle.dump(self.__dict__, f, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as e:
+            print(f"[RateCache] Failed to save pickle cache: {e}")
+
+    def _load_from_excel(self):
         sheets = pd.read_excel(self.data_file, sheet_name=None)
 
         # 1. cbm_computation rules
